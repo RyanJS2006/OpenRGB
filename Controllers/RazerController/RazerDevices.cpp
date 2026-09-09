@@ -9218,6 +9218,40 @@ static const razer_device charging_pad_chroma_device =
 };
 
 /*-------------------------------------------------------------*\
+|  Razer Laptop Cooling Pad 1532:0F43                           |
+|                                                               |
+|  Zone "LED Strip"                                             |
+|       Linear                                                  |
+|       18 LEDs                                                 |
+|                                                               |
+\*-------------------------------------------------------------*/
+static const razer_zone laptop_cooling_pad_zone =
+{
+    "LED Strip",
+    ZONE_TYPE_LINEAR,
+    1,
+    18
+};
+static const razer_device laptop_cooling_pad_device =
+{
+    "Razer Laptop Cooling Pad",
+    RAZER_LAPTOP_COOLING_PAD_PID,
+    DEVICE_TYPE_ACCESSORY,
+    RAZER_MATRIX_TYPE_EXTENDED,
+    0x1F,
+    1,
+    18,
+    {
+        &laptop_cooling_pad_zone,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    },
+    NULL
+};
+/*-------------------------------------------------------------*\
 |  O11 Dynamic - Razer Edition 1532:0F13                        |
 |                                                               |
 |  Zone "Case LEDs"                                             |
@@ -9637,6 +9671,7 @@ const razer_device* razer_device_list[] =
     &base_station_v2_device,
     &mouse_bungee_device,
     &charging_pad_chroma_device,
+    &laptop_cooling_pad_device,
     &chromaargb_device,
     &chromahdk_device,
     &chroma_pc_case_lighting_kit_device,

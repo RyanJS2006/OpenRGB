@@ -246,11 +246,15 @@ public:
     void                    SetModeBreathingTwoColors(unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2);
     void                    SetModeOff();
     void                    SetModeSpectrumCycle();
+    void                    SetModeStarlightRandom(unsigned char speed);
+    void                    SetModeStarlightOneColor(unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu);
+    void                    SetModeStarlightTwoColors(unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2);
     void                    SetModeStatic(unsigned char red, unsigned char grn, unsigned char blu);
     void                    SetModeWave(unsigned char direction);
 
     bool                    SupportsBreathing();
     bool                    SupportsReactive();
+    bool                    SupportsStarlight();
     bool                    SupportsWave();
 
 private:
@@ -320,6 +324,9 @@ private:
     razer_report            razer_create_mode_none_standard_matrix_report(unsigned char variable_storage, unsigned char led_id);
     razer_report            razer_create_mode_spectrum_cycle_extended_matrix_report(unsigned char variable_storage, unsigned char led_id);
     razer_report            razer_create_mode_spectrum_cycle_standard_matrix_report(unsigned char variable_storage, unsigned char led_id);
+    razer_report            razer_create_mode_starlight_random_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed);
+    razer_report            razer_create_mode_starlight_one_color_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu);
+    razer_report            razer_create_mode_starlight_two_colors_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2);
     razer_report            razer_create_mode_static_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char red, unsigned char grn, unsigned char blu);
     razer_report            razer_create_mode_static_standard_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char red, unsigned char grn, unsigned char blu);
     razer_report            razer_create_mode_wave_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char direction);
@@ -343,6 +350,9 @@ private:
     void                    razer_set_mode_custom();
     void                    razer_set_mode_none();
     void                    razer_set_mode_spectrum_cycle();
+    void                    razer_set_mode_starlight_random(unsigned char speed);
+    void                    razer_set_mode_starlight_one_color(unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu);
+    void                    razer_set_mode_starlight_two_colors(unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2);
     void                    razer_set_mode_static(unsigned char red, unsigned char grn, unsigned char blu);
     void                    razer_set_mode_wave(unsigned char direction);
 

@@ -109,6 +109,25 @@ RGBController_Razer::RGBController_Razer(RazerController* controller_ptr)
     SpectrumCycle.brightness_max = max_brightness;
     SpectrumCycle.brightness     = max_brightness;
     modes.push_back(SpectrumCycle);
+    if(controller->SupportsStarlight())
+    {
+        mode Starlight;
+        Starlight.name             = "Starlight";
+        Starlight.value            = RAZER_MODE_STARLIGHT;
+        Starlight.flags            = MODE_FLAG_HAS_MODE_SPECIFIC_COLOR | MODE_FLAG_HAS_RANDOM_COLOR | MODE_FLAG_HAS_SPEED | MODE_FLAG_HAS_BRIGHTNESS;
+        Starlight.color_mode       = MODE_COLORS_MODE_SPECIFIC;
+        Starlight.colors_min       = 1;
+        Starlight.colors_max       = 2;
+        Starlight.colors.resize(1);
+        Starlight.speed_min        = 1;
+        Starlight.speed_max        = 3;
+        Starlight.speed            = 2;
+        Starlight.brightness_min   = 0;
+        Starlight.brightness_max   = max_brightness;
+        Starlight.brightness       = max_brightness;
+        modes.push_back(Starlight);
+    }
+
 
     if(controller->SupportsWave())
     {
@@ -354,6 +373,50 @@ void RGBController_Razer::DeviceUpdateMode()
         case RAZER_MODE_SPECTRUM_CYCLE:
             controller->SetModeSpectrumCycle();
             break;
+
+        case RAZER_MODE_STARLIGHT:
+        {
+            unsigned char speed = (unsigned char)modes[active_mode].speed;
+
+            if(modes[active_mode].color_mode == MODE_COLORS_RANDOM)
+            {
+                controller->SetModeStarlightRandom(speed);
+            }
+            else if(modes[active_mode].color_mode == MODE_COLORS_MODE_SPECIFIC)
+            {
+                if(modes[active_mode].colors.size() == 1)
+                {
+                    unsigned char red = RGBGetRValue(modes[active_mode].colors[0]);
+                    unsigned char grn = RGBGetGValue(modes[active_mode].colors[0]);
+                    unsigned char blu = RGBGetBValue(modes[active_mode].colors[0]);
+
+                    controller->SetModeStarlightOneColor(
+                        speed,
+                        red,
+                        grn,
+                        blu
+                    );
+                }
+                else if(modes[active_mode].colors.size() == 2)
+                {
+                    unsigned char red1 = RGBGetRValue(modes[active_mode].colors[0]);
+                    unsigned char grn1 = RGBGetGValue(modes[active_mode].colors[0]);
+                    unsigned char blu1 = RGBGetBValue(modes[active_mode].colors[0]);
+
+                    unsigned char red2 = RGBGetRValue(modes[active_mode].colors[1]);
+                    unsigned char grn2 = RGBGetGValue(modes[active_mode].colors[1]);
+                    unsigned char blu2 = RGBGetBValue(modes[active_mode].colors[1]);
+
+                    controller->SetModeStarlightTwoColors(
+                        speed,
+                        red1, grn1, blu1,
+                        red2, grn2, blu2
+                    );
+                }
+            }
+
+            break;
+        }
 
         case RAZER_MODE_WAVE:
             switch(modes[active_mode].direction)

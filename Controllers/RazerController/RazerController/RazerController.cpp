@@ -117,6 +117,7 @@ RazerController::RazerController(hid_device* dev_handle, hid_device* dev_argb_ha
         case RAZER_GOLIATHUS_CHROMA_3XL_PID:
         case RAZER_LAPTOP_STAND_CHROMA_PID:
         case RAZER_LAPTOP_STAND_CHROMA_V2_PID:
+        case RAZER_LAPTOP_COOLING_PAD_PID:
         case RAZER_LEVIATHAN_V2_PID:
         case RAZER_LEVIATHAN_V2X_PID:
         case RAZER_MAMBA_ELITE_PID:
@@ -368,6 +369,25 @@ void RazerController::SetModeSpectrumCycle()
     razer_set_mode_spectrum_cycle();
 }
 
+void RazerController::SetModeStarlightRandom(unsigned char speed)
+{
+    razer_set_mode_starlight_random(speed);
+}
+
+void RazerController::SetModeStarlightOneColor(unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu)
+{
+    razer_set_mode_starlight_one_color(speed, red, grn, blu);
+}
+
+void RazerController::SetModeStarlightTwoColors(unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2)
+{
+    razer_set_mode_starlight_two_colors(
+        speed,
+        r1, g1, b1,
+        r2, g2, b2
+    );
+}
+
 void RazerController::SetModeStatic(unsigned char red, unsigned char grn, unsigned char blu)
 {
     razer_set_mode_static(red, grn, blu);
@@ -414,6 +434,11 @@ bool RazerController::SupportsBreathing()
 bool RazerController::SupportsReactive()
 {
     return(false);
+}
+
+bool RazerController::SupportsStarlight()
+{
+    return(dev_pid == RAZER_LAPTOP_COOLING_PAD_PID);
 }
 
 bool RazerController::SupportsWave()
@@ -553,6 +578,7 @@ bool RazerController::SupportsWave()
         case RAZER_FIREFLY_HYPERFLUX_PID:
         case RAZER_LAPTOP_STAND_CHROMA_PID:
         case RAZER_LAPTOP_STAND_CHROMA_V2_PID:
+        case RAZER_LAPTOP_COOLING_PAD_PID:
         case RAZER_LEVIATHAN_V2_PID:
         case RAZER_LEVIATHAN_V2X_PID:
         case RAZER_MOUSE_BUNGEE_V3_CHROMA_PID:
@@ -961,6 +987,83 @@ razer_report RazerController::razer_create_mode_spectrum_cycle_standard_matrix_r
     razer_report report         = razer_create_report(0x03, 0x0A, 0x01);
 
     report.arguments[0]         = 0x04;
+
+    return report;
+}
+
+razer_report RazerController::razer_create_mode_starlight_random_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed)
+{
+    razer_report report         = razer_create_report(0x0F, 0x02, 0x06);
+
+    report.arguments[0]         = variable_storage;
+    report.arguments[1]         = led_id;
+    report.arguments[2]         = 0x07;
+
+    if(speed < 0x01)
+    {
+        speed = 0x01;
+    }
+    else if(speed > 0x03)
+    {
+        speed = 0x03;
+    }
+
+    report.arguments[4]         = speed;
+
+    return report;
+}
+
+razer_report RazerController::razer_create_mode_starlight_one_color_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu)
+{
+    razer_report report         = razer_create_report(0x0F, 0x02, 0x09);
+
+    report.arguments[0]         = variable_storage;
+    report.arguments[1]         = led_id;
+    report.arguments[2]         = 0x07;
+
+    if(speed < 0x01)
+    {
+        speed = 0x01;
+    }
+    else if(speed > 0x03)
+    {
+        speed = 0x03;
+    }
+
+    report.arguments[4]         = speed;
+    report.arguments[5]         = 0x01;
+    report.arguments[6]         = red;
+    report.arguments[7]         = grn;
+    report.arguments[8]         = blu;
+
+    return report;
+}
+
+razer_report RazerController::razer_create_mode_starlight_two_colors_extended_matrix_report(unsigned char variable_storage, unsigned char led_id, unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2)
+{
+    razer_report report         = razer_create_report(0x0F, 0x02, 0x0C);
+
+    report.arguments[0]         = variable_storage;
+    report.arguments[1]         = led_id;
+    report.arguments[2]         = 0x07;
+
+    if(speed < 0x01)
+    {
+        speed = 0x01;
+    }
+    else if(speed > 0x03)
+    {
+        speed = 0x03;
+    }
+
+    report.arguments[4]         = speed;
+    report.arguments[5]         = 0x02;
+    report.arguments[6]         = r1;
+    report.arguments[7]         = g1;
+    report.arguments[8]         = b1;
+    report.arguments[9]         = r2;
+    report.arguments[10]        = g2;
+    report.arguments[11]        = b2;
 
     return report;
 }
@@ -1756,6 +1859,63 @@ void RazerController::razer_set_mode_spectrum_cycle()
                     break;
             }
             break;
+    }
+}
+
+void RazerController::razer_set_mode_starlight_random(unsigned char speed)
+{
+    if(matrix_type == RAZER_MATRIX_TYPE_EXTENDED ||
+       matrix_type == RAZER_MATRIX_TYPE_EXTENDED_ARGB)
+    {
+        razer_report report =
+            razer_create_mode_starlight_random_extended_matrix_report(
+                RAZER_STORAGE_NO_SAVE,
+                dev_led_id,
+                speed
+            );
+
+        razer_usb_send(&report);
+    }
+}
+
+void RazerController::razer_set_mode_starlight_one_color(unsigned char speed, unsigned char red, unsigned char grn, unsigned char blu)
+{
+    if(matrix_type == RAZER_MATRIX_TYPE_EXTENDED ||
+       matrix_type == RAZER_MATRIX_TYPE_EXTENDED_ARGB)
+    {
+        razer_report report =
+            razer_create_mode_starlight_one_color_extended_matrix_report(
+                RAZER_STORAGE_NO_SAVE,
+                dev_led_id,
+                speed,
+                red,
+                grn,
+                blu
+            );
+
+        razer_usb_send(&report);
+    }
+}
+
+void RazerController::razer_set_mode_starlight_two_colors(unsigned char speed, unsigned char r1, unsigned char g1, unsigned char b1, unsigned char r2, unsigned char g2, unsigned char b2)
+{
+    if(matrix_type == RAZER_MATRIX_TYPE_EXTENDED ||
+       matrix_type == RAZER_MATRIX_TYPE_EXTENDED_ARGB)
+    {
+        razer_report report =
+            razer_create_mode_starlight_two_colors_extended_matrix_report(
+                RAZER_STORAGE_NO_SAVE,
+                dev_led_id,
+                speed,
+                r1,
+                g1,
+                b1,
+                r2,
+                g2,
+                b2
+            );
+
+        razer_usb_send(&report);
     }
 }
 
