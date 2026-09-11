@@ -7,8 +7,59 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import argparse
 import colorsys
+import copy
 import math
 import time
+
+
+PRIMARY_COLORS = (
+    ("RED", (255, 0, 0)),
+    ("GREEN", (0, 255, 0)),
+    ("BLUE", (0, 0, 255)),
+    ("WHITE", (255, 255, 255)),
+)
+
+
+def primary_steps(dual=False):
+    for name, rgb in PRIMARY_COLORS:
+        # Black isolates the selected channel in either native color slot.
+        if dual:
+            yield name + " slot 1", [rgb, (0, 0, 0)]
+            yield name + " slot 2", [(0, 0, 0), rgb]
+        else:
+            yield name, [rgb]
+
+
+def test_primaries(device, mode_name, hold, dual):
+    from openrgb.utils import ModeColors, RGBColor
+
+    selected = next((m for m in device.modes if m.name == mode_name), None)
+    if selected is None:
+        raise RuntimeError(f"Missing native mode: {mode_name}")
+    for label, values in primary_steps(dual):
+        mode = copy.deepcopy(selected)
+        mode.brightness = mode.brightness_max
+        if mode_name == "Starlight":
+            mode.speed = 2
+        if mode_name != "Direct":
+            mode.color_mode = ModeColors.MODE_SPECIFIC
+            mode.colors = [RGBColor(*rgb) for rgb in values]
+        logical = "; ".join(f"#{r:02X}{g:02X}{b:02X} (R={r}, G={g}, B={b})"
+                            for r, g, b in values)
+        print(f"{mode_name}: {label}: submitting {logical}; hold {hold:g}s", flush=True)
+        device.set_mode(mode, save=False)
+        if mode_name == "Direct":
+            device.set_colors([RGBColor(*values[0]) for _ in device.leds], fast=True)
+        time.sleep(hold)
+        device.update()
+        actual = device.modes[device.active_mode]
+        if actual.name != mode_name:
+            raise RuntimeError("Mode changed during test; stop other lighting clients")
+        submitted = device.colors if mode_name == "Direct" else actual.colors
+        expected = values * len(device.leds) if mode_name == "Direct" else values
+        if [(c.red, c.green, c.blue) for c in submitted] != expected:
+            raise RuntimeError("SDK color readback differs from submitted values")
+    print("SDK readback verified; record PHYSICAL colors separately. This is not a physical pass.")
 
 
 def pattern_colors(pattern, frame, count=18):
@@ -23,6 +74,12 @@ def pattern_colors(pattern, frame, count=18):
 
 
 def self_test():
+    assert list(primary_steps()) == [(name, [rgb]) for name, rgb in PRIMARY_COLORS]
+    dual = list(primary_steps(True))
+    assert len(dual) == 8
+    for i, (_, rgb) in enumerate(PRIMARY_COLORS):
+        assert dual[2 * i][1] == [rgb, (0, 0, 0)]
+        assert dual[2 * i + 1][1] == [(0, 0, 0), rgb]
     for index in range(18):
         colors = pattern_colors("walk", index)
         assert colors[index] == (255, 0, 0)
@@ -35,7 +92,7 @@ def self_test():
         for frame in (0, 17, 18, 179, 180):
             colors = pattern_colors(name, frame)
             assert len(colors) == 18 and all(0 <= c <= 255 for rgb in colors for c in rgb)
-    print("PASS: walking, alternating, RGB and rainbow patterns")
+    print("PASS: primary single/dual sequences, walking, alternating, RGB and rainbow patterns")
 
 
 def main():
@@ -47,10 +104,21 @@ def main():
     parser.add_argument("--seconds", type=float, default=18, help="Duration at each requested FPS")
     parser.add_argument("--api", choices=("device", "zone", "single"), default="device")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--primaries", action="store_true", help="Submit red, green, blue, white once")
+    parser.add_argument("--mode", choices=("Direct", "Static", "Breathing", "Starlight"), default="Direct",
+                        help="Mode for --primaries")
+    parser.add_argument("--hold", type=float, default=2, help="Seconds per primary; use 6+ for native effects")
+    parser.add_argument("--dual", action="store_true", help="Test each Breathing/Starlight color slot against black")
     args = parser.parse_args()
     if args.self_test:
         self_test()
         return
+    if not math.isfinite(args.hold) or args.hold <= 0:
+        parser.error("--hold must be positive and finite")
+    if args.dual and (not args.primaries or args.mode not in ("Breathing", "Starlight")):
+        parser.error("--dual requires --primaries and Breathing or Starlight")
+    if not args.primaries and args.mode != "Direct":
+        parser.error("Native --mode requires --primaries")
     if not math.isfinite(args.seconds) or args.seconds <= 0 or any(
             not math.isfinite(fps) or not 0 < fps <= 60 for fps in args.fps):
         parser.error("Use a positive duration and FPS values above 0 and at most 60")
@@ -77,6 +145,10 @@ def main():
                 direct.flags & ModeFlags.HAS_PER_LED_COLOR):
             raise RuntimeError("Direct per-LED capability is missing; no lighting was changed")
         print(f"{device.name}: 18 LEDs, one linear zone, SDK protocol {client.protocol_version}")
+        if args.primaries:
+            started = True
+            test_primaries(device, args.mode, args.hold, args.dual)
+            return
         device.set_mode("Direct", save=False, force=True)
         started = True
         time.sleep(0.25)

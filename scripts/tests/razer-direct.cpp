@@ -198,6 +198,65 @@ static void TestDevice(unsigned short pid, unsigned char transaction, unsigned i
     assert(starlight == (pid == RAZER_LAPTOP_COOLING_PAD_PID));
 }
 
+/* Literal wire bytes are independent of the RGB extraction macros.
+ * These establish software ordering, not the physical LED channel mapping. */
+static void TestPrimaryColors(unsigned short pid)
+{
+    TestRazer rgb(new RazerController(NULL, NULL, "mock", pid, "mock"));
+    TakeReports();
+    const RGBColor logical[] = {
+        ToRGBColor(255, 0, 0), ToRGBColor(0, 255, 0), ToRGBColor(0, 0, 255),
+        ToRGBColor(255, 0, 25)
+    };
+    const unsigned char wire[][3] = {
+        {0xFF, 0x00, 0x00}, {0x00, 0xFF, 0x00}, {0x00, 0x00, 0xFF},
+        {0xFF, 0x00, 0x19}
+    };
+    for(unsigned int primary = 0; primary < 4; primary++)
+    {
+        rgb.active_mode = 0;
+        for(unsigned int led = 0; led < rgb.colors.size(); led++)
+            rgb.colors[led] = logical[(primary + led) % 4];
+        rgb.DeviceUpdateLEDs();
+        auto frame = TakeReports();
+        assert(frame.size() >= 2);
+        unsigned int led = 0;
+        for(unsigned int row = 0; row + 1 < frame.size(); row++)
+        {
+            assert(frame[row].command_class == 0x0F && frame[row].command_id.id == 0x03);
+            for(unsigned int offset = 5; offset + 2 < frame[row].data_size; offset += 3, led++)
+                assert(memcmp(&frame[row].arguments[offset], wire[(primary + led) % 4], 3) == 0);
+        }
+        assert(led == rgb.colors.size());
+        for(unsigned int index = 0; index < rgb.modes.size(); index++)
+        {
+            mode& native = rgb.modes[index];
+            if(native.value != RAZER_MODE_STATIC && native.value != RAZER_MODE_BREATHING
+               && native.value != RAZER_MODE_STARLIGHT) continue;
+            rgb.active_mode = index;
+            native.color_mode = MODE_COLORS_MODE_SPECIFIC;
+            for(unsigned int count = 1; count <= native.colors_max; count++)
+            {
+                native.colors = {logical[primary]};
+                if(count == 2) native.colors.push_back(logical[(primary + 1) % 4]);
+                rgb.DeviceUpdateMode();
+                auto effect = TakeReports();
+                assert(effect.size() == 2);
+                assert(effect[0].command_class == 0x0F && effect[0].command_id.id == 0x02);
+                const unsigned char effect_id = native.value == RAZER_MODE_STATIC ? 1
+                                              : native.value == RAZER_MODE_BREATHING ? 2 : 7;
+                assert(effect[0].arguments[2] == effect_id);
+                assert(effect[0].arguments[5] == count && effect[0].data_size == 6 + 3 * count);
+                assert(memcmp(&effect[0].arguments[6], wire[primary], 3) == 0);
+                if(count == 2)
+                    assert(memcmp(&effect[0].arguments[9], wire[(primary + 1) % 4], 3) == 0);
+            }
+        }
+    }
+    std::cout << "PASS: literal RGB bytes for Direct, Static, Breathing single/dual and available Starlight, PID "
+              << std::hex << pid << std::dec << "\n";
+}
+
 int main()
 {
     static_assert(RAZER_MODE_WAVE == 5 && RAZER_MODE_REACTIVE == 6, "Preserve existing mode values");
@@ -205,6 +264,10 @@ int main()
     TestDevice(RAZER_BASE_STATION_V2_CHROMA_PID, 0x1F, 1, 8);
     TestDevice(RAZER_LAPTOP_STAND_CHROMA_V2_PID, 0x1F, 1, 15);
     TestDevice(RAZER_NOMMO_PRO_PID, 0x3F, 2, 8);
+    TestPrimaryColors(RAZER_LAPTOP_COOLING_PAD_PID);
+    TestPrimaryColors(RAZER_BASE_STATION_V2_CHROMA_PID);
+    TestPrimaryColors(RAZER_LAPTOP_STAND_CHROMA_V2_PID);
+    TestPrimaryColors(RAZER_NOMMO_PRO_PID);
     TestRazer rgb(new RazerController(NULL, NULL, "mock", RAZER_LAPTOP_COOLING_PAD_PID, "mock"));
     TakeReports();
     rgb.SetCustomMode();

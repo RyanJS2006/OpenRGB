@@ -1308,6 +1308,14 @@ std::string RazerController::GetKeyboardLayoutString()
 
 std::string RazerController::GetVariantName()
 {
+    /*-----------------------------------------------------*\
+    | The cooling pad does not have a keyboard variant.     |
+    \*-----------------------------------------------------*/
+    if(dev_pid == RAZER_LAPTOP_COOLING_PAD_PID)
+    {
+        return "";
+    }
+
     unsigned char layout;
     unsigned char variant;
 

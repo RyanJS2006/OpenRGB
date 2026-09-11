@@ -51,8 +51,11 @@ RGBController_Razer::RGBController_Razer(RazerController* controller_ptr)
     std::string variant = controller->GetVariantName();
 
     LOG_DEBUG("[%s] returned: %s", name.c_str(), variant.c_str());
-    description.append(", ");
-    description.append(variant);
+    if(!variant.empty())
+    {
+        description.append(", ");
+        description.append(variant);
+    }
 
     mode Direct;
     Direct.name             = "Direct";
