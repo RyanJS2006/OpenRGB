@@ -109,25 +109,6 @@ RGBController_Razer::RGBController_Razer(RazerController* controller_ptr)
     SpectrumCycle.brightness_max = max_brightness;
     SpectrumCycle.brightness     = max_brightness;
     modes.push_back(SpectrumCycle);
-    if(controller->SupportsStarlight())
-    {
-        mode Starlight;
-        Starlight.name             = "Starlight";
-        Starlight.value            = RAZER_MODE_STARLIGHT;
-        Starlight.flags            = MODE_FLAG_HAS_MODE_SPECIFIC_COLOR | MODE_FLAG_HAS_RANDOM_COLOR | MODE_FLAG_HAS_SPEED | MODE_FLAG_HAS_BRIGHTNESS;
-        Starlight.color_mode       = MODE_COLORS_MODE_SPECIFIC;
-        Starlight.colors_min       = 1;
-        Starlight.colors_max       = 2;
-        Starlight.colors.resize(1);
-        Starlight.speed_min        = 1;
-        Starlight.speed_max        = 3;
-        Starlight.speed            = 2;
-        Starlight.brightness_min   = 0;
-        Starlight.brightness_max   = max_brightness;
-        Starlight.brightness       = max_brightness;
-        modes.push_back(Starlight);
-    }
-
 
     if(controller->SupportsWave())
     {
@@ -157,6 +138,25 @@ RGBController_Razer::RGBController_Razer(RazerController* controller_ptr)
         Reactive.brightness_max = max_brightness;
         Reactive.brightness     = max_brightness;
         modes.push_back(Reactive);
+    }
+
+    if(controller->SupportsStarlight())
+    {
+        mode Starlight;
+        Starlight.name             = "Starlight";
+        Starlight.value            = RAZER_MODE_STARLIGHT;
+        Starlight.flags            = MODE_FLAG_HAS_MODE_SPECIFIC_COLOR | MODE_FLAG_HAS_RANDOM_COLOR | MODE_FLAG_HAS_SPEED | MODE_FLAG_HAS_BRIGHTNESS;
+        Starlight.color_mode       = MODE_COLORS_MODE_SPECIFIC;
+        Starlight.colors_min       = 1;
+        Starlight.colors_max       = 2;
+        Starlight.colors.resize(1);
+        Starlight.speed_min        = 1;
+        Starlight.speed_max        = 3;
+        Starlight.speed            = 2;
+        Starlight.brightness_min   = 0;
+        Starlight.brightness_max   = max_brightness;
+        Starlight.brightness       = max_brightness;
+        modes.push_back(Starlight);
     }
 
     SetupZones();
@@ -309,7 +309,15 @@ void RGBController_Razer::SetupZones()
 
 void RGBController_Razer::DeviceUpdateLEDs()
 {
-    controller->SetLEDs(&colors[0]);
+    std::lock_guard<std::mutex> lock(update_mutex);
+
+    /*---------------------------------------------------------*\
+    | A queued color update must not replace a hardware effect. |
+    \*---------------------------------------------------------*/
+    if(modes[active_mode].value == RAZER_MODE_DIRECT && !colors.empty())
+    {
+        controller->SetLEDs(colors.data());
+    }
 }
 
 void RGBController_Razer::DeviceUpdateZoneLEDs(int /*zone*/)
@@ -324,8 +332,21 @@ void RGBController_Razer::DeviceUpdateSingleLED(int /*led*/)
 
 void RGBController_Razer::DeviceUpdateMode()
 {
+    /*---------------------------------------------------------*\
+    | Zone/single updates can run beside the device call thread.|
+    | Keep the frame and its apply command together.            |
+    \*---------------------------------------------------------*/
+    std::lock_guard<std::mutex> lock(update_mutex);
+
     switch(modes[active_mode].value)
     {
+        case RAZER_MODE_DIRECT:
+            if(!colors.empty())
+            {
+                controller->SetLEDs(colors.data());
+            }
+            break;
+
         case RAZER_MODE_OFF:
             controller->SetModeOff();
             break;
